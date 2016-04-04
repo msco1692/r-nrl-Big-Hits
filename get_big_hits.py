@@ -20,7 +20,12 @@ def downloadImgurImage(imageUrl, imageName):
 
 # Takes a screenshot of given element and saves it locally at imageName.
 # Elements are obtained using selenium.webdriver functions 
-def screenCapElement(element, imageName):
+def screenCapElement(element, imageName, offset = 350):
+
+	bottom = None
+	if type(element) is list:
+		bottom = element[-1].location['y']
+		element = element[0]
 
 	# Find location of element
 	location = element.location
@@ -29,9 +34,12 @@ def screenCapElement(element, imageName):
 	# Generate bounding box around element
 	left = location['x']
 	top = location['y']
-	# Reddit elements of interest go to the far right of screen, and are overlaid with ads. The offset here accounts for that.
-	right = location['x'] + size['width'] - 350 
-	bottom = location['y'] + size['height']
+	# Reddit elements of interest go to the far right of screen, and are overlaid with ads. Offset of 325 required, but can probably be increased for comments. Titles often take up the full space.
+	right = location['x'] + size['width'] - offset 
+
+	if bottom is None:
+		bottom = location['y'] + size['height']
+
 
 	# Take, crop and save screenshot.
 	fox.save_screenshot(imageName)
@@ -119,7 +127,7 @@ if __name__ == '__main__':
 			# Get title screencap if this hasn't been done before
 			if not os.path.isfile(submissionTime + ".png"):
 				titleName = submissionTime + ".png"
-				screenCapElement(element = getTitleElement(), imageName = titleName)
+				screenCapElement(element = getTitleElement(), imageName = titleName, offset = 325)
 
 			# Get submission image if this hasn't been done before and it exists
 			if not os.path.isfile(submissionTime + "_0.png"):
@@ -129,7 +137,7 @@ if __name__ == '__main__':
 
 			# Screencap parent comments
 			commentName = submissionTime + "_" + commentTime + ".png"
-			screenCapElement(element = getCommentElement("thing_t1_" + parent_list[-1].id), imageName = commentName)
+			screenCapElement(element = [getCommentElement("thing_t1_" + parent_list[-1].id), getCommentElement("thing_t1_" + parent_list[0].id)], imageName = commentName)
 
 			# Extract images linked within the posts
 			for post in parent_list[::-1]:
