@@ -5,8 +5,8 @@ from datetime import datetime
 from PIL import Image
 
 import praw
-from selenium import webdriver
 import requests
+from selenium import webdriver
 
 from config_bot import *
 
@@ -40,14 +40,13 @@ def screenCapElement(element, imageName):
 	im.save(imageName)
 	
 # Generates a list of parent comments from the provided message. The number of comments included can be capped at maxPostCount.
-def getParentCommentList(msg, maxPostCount = 4):
+def getParentCommentList(msg, maxPostCount = 3):
 	post_list = [msg]
 	for _ in range(maxPostCount):
 		post = r.get_info(thing_id = post_list[-1].parent_id)
 		# If a top level-comment has been reached the parent will be a Submission not a Comment
 		if isinstance(post, praw.objects.Comment):
 			post_list.append(post)
-
 	return post_list
 
 # Returns element corresponding to comment with ID given by msgID
@@ -71,7 +70,7 @@ MIN_USER_AGE = 0
 if __name__ == '__main__':
 
 	# Login as nrl_big_hits_bot
-	user_agent = ("r/NRL Big Hit Tracker 0.1: made by u/stua8992")
+	user_agent = ("r/NRL Big Hit Tracker 1.01: made by u/stua8992")
 	r = praw.Reddit(user_agent = user_agent)
 	r.login(REDDIT_USERNAME, REDDIT_PASS, disable_warning = True)
 
@@ -108,21 +107,39 @@ if __name__ == '__main__':
 
 			parent_list = getParentCommentList(msg)
 
-			# Generate image names based on creation of comment. Titles should have lower image names, than images, than posts to ensure desired order when uploading.
-			imageName = str(int(parent_list[1].created_utc)) + ".png"
-			# Comment id in html is given by thing_t1_xxxxxxxx where the xs represent reddit's comment id
-			screenCapElement(element = getCommentElement("thing_t1_" + parent_list[-1].id), imageName = imageName)
+			# Screencap naming convention: 
+				# title: submissionTime
+				# submission image: submissionTime_0
+				# posts: submissionTime_parentTime
+				# images from posts: submissionTime_parentTime_imageNumber
+			# When sorting screencap folder all images will be organised by thread in alphabetical order, with title, submission image, and posts interlaced with relevant images
 
-			# Check if title is requested 
-			if 'title'.lower() in msg.body.lower():
-				imageName = str(int(parent_list[1].created_utc) - 2) + ".png"
-				screenCapElement(element = getTitleElement(), imageName = imageName)
+			submissionTime = str(int(msg.submission.created_utc))
+			commentTime = str(int(parent_list[1].created_utc))
+			# Get title screencap if this hasn't been done before
+			if not os.path.isfile(submissionTime + ".png"):
+				titleName = submissionTime + ".png"
+				screenCapElement(element = getTitleElement(), imageName = titleName)
 
-			# Check if image is requested
-			if 'image'.lower() in msg.body.lower():
+			# Get submission image if this hasn't been done before and it exists
+			if not os.path.isfile(submissionTime + "_0.png"):
 				if 'imgur' in msg.submission.domain:
-					imageName = str(int(parent_list[1].created_utc) - 1) + ".png"
+					imageName = submissionTime + "_0.png"
 					downloadImgurImage(imageUrl = msg.submission.url, imageName = imageName)
+
+			# Screencap parent comments
+			commentName = submissionTime + "_" + commentTime + ".png"
+			screenCapElement(element = getCommentElement("thing_t1_" + parent_list[-1].id), imageName = commentName)
+
+			# Extract images linked within the posts
+			for post in parent_list[::-1]:
+				imageNumber = 1
+				imgurRefs = re.findall(r"<a href=.*?imgur.*?>", post.body_html)
+				for imgurRef in imgurRefs:
+					url = re.findall(r'"(.*?)"', imgurRef)[0]
+					imageName = submissionTime + "_" + str(int(post.created_utc)) + "_" + str(imageNumber) + ".png"
+					imageNumber += 1
+					downloadImgurImage(imageUrl = url, imageName = imageName)				
 
 		if TESTING_FLAG == False:
 			msg.mark_as_read()
