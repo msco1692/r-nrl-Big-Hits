@@ -124,6 +124,7 @@ if __name__ == '__main__':
 
 			submissionTime = str(int(msg.submission.created_utc))
 			commentTime = str(int(parent_list[1].created_utc))
+			
 			# Get title screencap if this hasn't been done before
 			if not os.path.isfile(submissionTime + ".png"):
 				titleName = submissionTime + ".png"
@@ -145,7 +146,7 @@ if __name__ == '__main__':
 				imgurRefs = re.findall(r"<a href=.*?imgur.*?>", post.body_html)
 				for imgurRef in imgurRefs:
 					url = re.findall(r'"(.*?)"', imgurRef)[0]
-					imageName = submissionTime + "_" + str(int(post.created_utc)) + "_" + str(imageNumber) + ".png"
+					imageName = submissionTime + "_" + commentTime + "_" + str(imageNumber) + ".png"
 					imageNumber += 1
 					downloadImgurImage(imageUrl = url, imageName = imageName)				
 
@@ -154,3 +155,4 @@ if __name__ == '__main__':
 
 	# Close firefox instance
 	fox.quit()
+
